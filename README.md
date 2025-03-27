@@ -1,58 +1,144 @@
-# Priority-based Mutual Exclusion Algorithm
+# Priority-based Mutual Exclusion Algorithm (PMutex)
 
-This is an implementation of a **priority-based mutual exclusion algorithm** designed to manage access to a critical section. The algorithm uses a **priority queue** and **mutex locking** mechanism to control process access in a fair and efficient way.
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
----
+A high-efficiency synchronization primitive that combines FIFO fairness with priority scheduling. Perfect for systems where critical section access needs both fairness and priority awareness.
 
-## 📝 Overview
+## Table of Contents
+- [Key Features](#key-features)
+- [Algorithm Overview](#algorithm-overview)
+- [Quick Start](#quick-start)
+- [Build Instructions](#build-instructions)
+- [API Reference](#api-reference)
+- [Performance Characteristics](#performance-characteristics)
+- [Contributing](#contributing)
+- [License](#license)
 
-This algorithm provides a way to grant and release access to a critical section based on the **arrival timestamp** of processes. It ensures that:
+## Key Features
 
-- Processes are granted access to the critical section based on their **arrival timestamp**.
-- If multiple processes have the same timestamp, the process with the **higher priority** is granted access first.
-- **Mutual exclusion** is maintained, meaning no two processes can execute in the critical section at the same time.
-- The system prevents **starvation** by granting access in a fair manner.
+✔ **Priority-aware scheduling** - Higher priority processes get precedence when timestamps collide  
+✔ **Starvation-free** - Guarantees eventual access for all processes  
+✔ **Thread-safe implementation** - Robust mutex protection for all queue operations  
+✔ **Lightweight** - Pure C implementation with minimal dependencies  
 
----
+## Algorithm Overview
 
-## ⚙️ Features
+The PMutex algorithm works through three core components:
 
-- **FIFO Queue**: The algorithm uses a **priority queue** (FIFO by default) to manage processes.
-- **Timestamp-based Scheduling**: Processes are granted access based on their **arrival timestamp**. If two processes have the same timestamp, the one with the **higher priority** is chosen.
-- **Mutex Locking**: A **mutex lock** is used to ensure that the queue is accessed safely, preventing race conditions.
+1. **Priority Queue** - Stores pending requests with (PID, priority, timestamp) tuples
+2. **FIFO Baseline** - By default, processes are granted access in arrival order
+3. **Priority Escalation** - When multiple requests arrive at the same time, highest priority wins
 
----
+```c
+// Simplified core logic
+while (true) {
+    lock(queue);
+    if (!empty(queue)) {
+        ProcessEntry entry = find_oldest_highest_priority(queue);
+        grant_access(entry.pid);
+        unlock(queue);
+        execute_critical_section(entry.pid);
+    } else {
+        unlock(queue);
+        sleep(SHORT_DELAY);
+    }
+}
+```
+Full pseudocode available in [ALGORITHM.md](ALGORITHM.md).
 
-## 🔧 Functions
+## Quick Start
 
-### `request_access(process_id, priority)`
+### Basic Usage
 
-This function allows a process to request access to the critical section. The process is added to the queue with its **priority** and **timestamp**.
+```c
+#include "pmutex.h"
 
-### `grant_access()`
+PMutex m;
+pmutex_init(&m);
 
-This function continuously checks the queue for processes waiting for access. It grants access to the process with the **earliest arrival timestamp**. If multiple processes have the same timestamp, the process with the **higher priority** is selected.
+// Thread 1
+pmutex_request(&m, 1001, HIGH_PRIORITY);
+pmutex_wait(&m);
+/* Critical section */
+pmutex_release(&m);
 
-### `release_access(process_id)`
+// Thread 2
+pmutex_request(&m, 1002, LOW_PRIORITY);
+pmutex_wait(&m);
+/* Critical section */
+pmutex_release(&m);
+```
 
-This function is called when a process has finished executing in the critical section, releasing its access.
+### Sample Output
 
----
+```
+[PMutex] Process 1001 (PRIO 2) entered critical section
+[PMutex] Process 1001 released lock after 15ms
+[PMutex] Process 1002 (PRIO 1) entered critical section
+```
 
-## 🛠️ How It Works
+## Build Instructions
 
-1. A process calls `request_access()` to join the queue with its **ID**, **priority**, and **timestamp**.
-2. The `grant_access()` function grants access based on the **arrival timestamp**. If multiple processes have the same timestamp, the process with the **higher priority** is granted access first.
-3. Once a process is done executing in the critical section, it calls `release_access()`.
+### Prerequisites
 
----
+- GCC or Clang
+- POSIX threads library
 
-## 🚀 Usage
+### Compilation
 
-You can integrate this algorithm into your projects to handle process synchronization and mutual exclusion in a **timestamp-based** manner. Simply include the algorithm code and call the functions as needed to manage critical section access.
+```bash
+git clone https://github.com/yourusername/Priority-based-Mutual-Exclusion-Algorithm.git
+cd Priority-based-Mutual-Exclusion-Algorithm
+make
+```
 
----
+### Running Tests
 
-## 📝 License
+```bash
+./build/pmutex_test
+```
 
-This project is **open source** and released under the **MIT License**. Feel free to use, modify, and distribute the code!
+## API Reference
+
+### Core Functions
+
+| Function            | Description                         |
+|---------------------|-------------------------------------|
+| `pmutex_init()`      | Initialize PMutex instance         |
+| `pmutex_request()`   | Submit access request with priority |
+| `pmutex_wait()`      | Block until access granted         |
+| `pmutex_release()`   | Release critical section           |
+
+### Priority Levels
+
+```c
+#define PRIO_CRITICAL 4   // System-critical tasks
+#define PRIO_HIGH     3
+#define PRIO_NORMAL   2   // Default
+#define PRIO_LOW      1
+#define PRIO_BACKGROUND 0 // Non-urgent tasks
+```
+
+## Performance Characteristics
+
+| Operation | Time Complexity | Notes                        |
+|-----------|-----------------|------------------------------|
+| Request   | O(1)            | Constant time enqueue        |
+| Grant     | O(n)            | Linear scan for oldest+highest |
+| Release   | O(1)            | Simple state update          |
+
+For systems with >1000 concurrent threads, consider the heap-based variant in `pmutex_advanced.c`.
+
+## Contributing
+
+We welcome contributions! Please follow these guidelines:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/your-feature`)
+3. Commit your changes
+4. Push to the branch
+5. Open a pull request
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
